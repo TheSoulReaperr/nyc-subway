@@ -131,9 +131,21 @@ function initMap() {
 
   // Style the GeoJSON features (stations & lines)
   map.data.setStyle(feature => {
-    const line = feature.getProperty('line');
-    // Stations have line property, while lines do not.
-    if (line) {
+    const type = feature.getProperty('type');
+    if (type === 'cluster') {
+      // Icon path from: https://material.io/icons/#ic_add_circle_outline
+      return {
+        icon: {
+          fillColor: '#00b0ff',
+          strokeColor: '#3c8cb8',
+          fillOpacity: 1.0,
+          scale: 1.2,
+          path: 'M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7zm-1-5C6.48 2 2 6.48 2 12s4' +
+            '.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8' +
+            's3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z'
+        }
+      };
+    } else if (type === 'station') {
       // Icon path from: https://material.io/icons/#ic_train
       return {
         icon: {
@@ -150,7 +162,7 @@ function initMap() {
       };
     }
 
-    // if type is not a station, it's a subway line
+    // if type is not a station or a cluster, it's a subway line
     const routeSymbol = feature.getProperty('rt_symbol');
     return {
       strokeColor: routeColors[routeSymbol]
@@ -159,18 +171,14 @@ function initMap() {
 
   map.data.addListener('click', ev => {
     const f = ev.feature;
-    const stationName = f.getProperty('name');
-    let line = f.getProperty('line');
-    // Stations have line property, while lines do not.
-    if (!line) {
+    const title = f.getProperty('title');
+    const description = f.getProperty('description');
+
+    if (!description) {
       return;
     }
-    if (line.includes('-')) {
-      line += ' lines';
-    } else {
-      line += ' line';
-    }
-    infowindow.setContent(`<b>${stationName} Station</b><br/>Serves ${line}`);
+
+    infowindow.setContent(`<b>${title}</b><br/> ${description}`);
     // Hat tip geocodezip: http://stackoverflow.com/questions/23814197
     infowindow.setPosition(f.getGeometry().get());
     infowindow.setOptions({
@@ -185,8 +193,9 @@ function initMap() {
   google.maps.event.addListener(map, 'idle', () => {
     const sw = map.getBounds().getSouthWest();
     const ne = map.getBounds().getNorthEast();
+    const zm = map.getZoom();
     map.data.loadGeoJson(
-      `/data/subway-stations?viewport=${sw.lat()},${sw.lng()}|${ne.lat()},${ne.lng()}`,
+      `/data/subway-stations?viewport=${sw.lat()},${sw.lng()}|${ne.lat()},${ne.lng()}&zoom=${zm}`,
       null,
       features => {
         stationDataFeatures.forEach(dataFeature => {
@@ -197,21 +206,3 @@ function initMap() {
     );
   });
 }
-
-  // The idle callback is called every time the map has finished
-  // moving, zooming,  panning or animating. We use it to load
-  // Geojson for the new viewport.
-  google.maps.event.addListener(map, 'idle', () => {
-    const sw = map.getBounds().getSouthWest();
-    const ne = map.getBounds().getNorthEast();
-    map.data.loadGeoJson(
-      `/data/subway-stations?viewport=${sw.lat()},${sw.lng()}|${ne.lat()},${ne.lng()}`,
-      null,
-      features => {
-        stationDataFeatures.forEach(dataFeature => {
-          map.data.remove(dataFeature);
-        });
-        stationDataFeatures = features;
-      }
-    );
-  });

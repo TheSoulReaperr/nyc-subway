@@ -57,10 +57,18 @@ func subwayStationsHandler(w http.ResponseWriter, r *http.Request) {
                 http.Error(w, str, 400)
                 return
         }
+        zm, err := strconv.ParseInt(r.FormValue("zoom"), 10, 0)
+        if err != nil {
+                str := fmt.Sprintf("Couldn't parse zoom: %s", err)
+                http.Error(w, str, 400)
+                return
+        }
         s := Stations.SearchIntersect(rect)
-        fc := geojson.NewFeatureCollection()
-        for _, station := range s {
-                fc.AddFeature(station.(*Station).feature)
+        fc, err := clusterStations(s, int(zm))
+        if err != nil {
+                str := fmt.Sprintf("Couldn't cluster results: %s", err)
+                http.Error(w, str, 500)
+                return
         }
         err = json.NewEncoder(w).Encode(fc)
         if err != nil {
@@ -96,14 +104,17 @@ func newRect(vp string) (*rtree.Rect, error) {
         distLat := math.Max(swLat, neLat) - minLat
         distLng := math.Max(swLng, neLng) - minLng
 
+        // Grow the rect to ameliorate issues with stations
+        // disappearing on Zoom in, and being slow to appear
+        // on Pan or Zoom out.
         r, err := rtree.NewRect(
                 rtree.Point{
-                        minLng,
-                        minLat,
+                        minLng - distLng/10,
+                        minLat - distLat/10,
                 },
                 []float64{
-                        distLng,
-                        distLat,
+                        distLng * 1.2,
+                        distLat * 1.2,
                 })
         if err != nil {
                 return nil, err

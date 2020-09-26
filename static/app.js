@@ -3,7 +3,7 @@
 /* eslint-env browser */
 /* eslint quotes: ["warn", "single"]*/
 
-// Replace the following with the JSON from the Styling Wizard
+// Map Style for the basemap tiles.
 const mapStyle = [
   {
     elementType: 'geometry',
@@ -124,9 +124,9 @@ function initMap() {
     styles: mapStyle
   });
   const infowindow = new google.maps.InfoWindow();
+  let stationDataFeatures = [];
 
-  // Load GeoJSON data from the back end
-  map.data.loadGeoJson('/data/subway-stations');
+  // Load GeoJSON for subway lines. Stations are loaded in the idle callback.
   map.data.loadGeoJson('/data/subway-lines');
 
   // Style the GeoJSON features (stations & lines)
@@ -152,7 +152,6 @@ function initMap() {
 
     // if type is not a station, it's a subway line
     const routeSymbol = feature.getProperty('rt_symbol');
-
     return {
       strokeColor: routeColors[routeSymbol]
     };
@@ -179,4 +178,40 @@ function initMap() {
     });
     infowindow.open(map);
   });
+
+  // The idle callback is called every time the map has finished
+  // moving, zooming,  panning or animating. We use it to load
+  // Geojson for the new viewport.
+  google.maps.event.addListener(map, 'idle', () => {
+    const sw = map.getBounds().getSouthWest();
+    const ne = map.getBounds().getNorthEast();
+    map.data.loadGeoJson(
+      `/data/subway-stations?viewport=${sw.lat()},${sw.lng()}|${ne.lat()},${ne.lng()}`,
+      null,
+      features => {
+        stationDataFeatures.forEach(dataFeature => {
+          map.data.remove(dataFeature);
+        });
+        stationDataFeatures = features;
+      }
+    );
+  });
 }
+
+  // The idle callback is called every time the map has finished
+  // moving, zooming,  panning or animating. We use it to load
+  // Geojson for the new viewport.
+  google.maps.event.addListener(map, 'idle', () => {
+    const sw = map.getBounds().getSouthWest();
+    const ne = map.getBounds().getNorthEast();
+    map.data.loadGeoJson(
+      `/data/subway-stations?viewport=${sw.lat()},${sw.lng()}|${ne.lat()},${ne.lng()}`,
+      null,
+      features => {
+        stationDataFeatures.forEach(dataFeature => {
+          map.data.remove(dataFeature);
+        });
+        stationDataFeatures = features;
+      }
+    );
+  });
